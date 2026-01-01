@@ -31,7 +31,7 @@ export default function MessageItem({ message }: MessageItemProps) {
             {sender.username}
           </p>
         )}
-        <p className="break-words whitespace-pre-wrap">{message.content}</p>
+        <p className="wrap-break-word whitespace-pre-wrap">{message.content}</p>
         <div className="flex items-center justify-end gap-2 mt-1">
           <p
             className={`text-xs ${

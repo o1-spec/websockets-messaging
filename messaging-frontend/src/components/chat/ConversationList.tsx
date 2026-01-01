@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { formatDate } from '@/lib/utils';
 import { apiClient } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ConversationListProps {
   selectedConversation: any;
@@ -17,6 +18,7 @@ export default function ConversationList({
 }: ConversationListProps) {
   const [conversations, setConversations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { user: currentUser } = useAuth();
 
   useEffect(() => {
     fetchConversations();
@@ -25,7 +27,6 @@ export default function ConversationList({
   const fetchConversations = async () => {
     setIsLoading(true);
     try {
-      // You need to create this endpoint in your backend
       const response = await apiClient.getConversations();
       setConversations(response.conversations || []);
     } catch (error) {
@@ -36,11 +37,23 @@ export default function ConversationList({
     }
   };
 
-  const filteredConversations = conversations.filter((conv) =>
-    conv.participants?.some((p: any) =>
-      p.username?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  );
+  // Helper function to get the other participant (not the current user)
+  const getOtherParticipant = (conversation: any) => {
+    if (!conversation.participants || conversation.participants.length === 0) {
+      return null;
+    }
+    
+    // Find participant that is NOT the current user
+    return conversation.participants.find(
+      (p: any) => p._id !== currentUser?._id
+    ) || conversation.participants[0];
+  };
+
+  const filteredConversations = conversations.filter((conv) => {
+    const otherParticipant = getOtherParticipant(conv);
+    if (!searchQuery.trim()) return true;
+    return otherParticipant?.username?.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   if (isLoading) {
     return (
@@ -76,7 +89,8 @@ export default function ConversationList({
   return (
     <div className="divide-y divide-gray-200">
       {filteredConversations.map((conversation) => {
-        const participant = conversation.participants?.[0];
+        // Get the OTHER participant (not current user)
+        const otherParticipant = getOtherParticipant(conversation);
         const isSelected = selectedConversation?._id === conversation._id;
 
         return (
@@ -89,17 +103,17 @@ export default function ConversationList({
           >
             <div className="flex items-center space-x-3">
               <div className="relative">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-                  {participant?.username?.[0]?.toUpperCase() || 'U'}
+                <div className="w-12 h-12 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                  {otherParticipant?.username?.[0]?.toUpperCase() || 'U'}
                 </div>
-                {participant?.isOnline && (
+                {otherParticipant?.isOnline && (
                   <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-gray-900 truncate">
-                    {participant?.username || 'Unknown User'}
+                    {otherParticipant?.username || 'Unknown User'}
                   </h3>
                   <span className="text-xs text-gray-500">
                     {conversation.lastMessage?.createdAt
