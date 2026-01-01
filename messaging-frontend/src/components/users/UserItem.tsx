@@ -4,17 +4,19 @@ import { User } from '@/types';
 import OnlineStatus from './OnlineStatus';
 import { apiClient } from '@/lib/api';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSocket } from '@/context/SocketContext';
 
 interface UserItemProps {
   user: User;
+  onChatCreated?: (conversationId: string) => void;
 }
 
-export default function UserItem({ user }: UserItemProps) {
+export default function UserItem({ user, onChatCreated }: UserItemProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { emitConversationCreated, isConnected } = useSocket();
 
   const handleStartChat = async () => {
@@ -34,16 +36,23 @@ export default function UserItem({ user }: UserItemProps) {
       const response = await apiClient.createConversation([userId]);
       console.log('Conversation response:', response);
       
+      const conversationId = response.conversation._id;
+      
       // Only emit if it's a NEW conversation
       if (response.isNew && isConnected) {
         console.log('Emitting conversation:created event');
-        emitConversationCreated(response.conversation._id);
+        emitConversationCreated(conversationId);
       } else {
         console.log('Conversation already exists, not emitting event');
       }
       
-      // Navigate to chat page
-      router.push('/chat');
+      // Notify parent component to switch tabs and select conversation
+      if (onChatCreated) {
+        onChatCreated(conversationId);
+      }
+      
+      // Update URL with conversation ID
+      router.push(`/chat?conversation=${conversationId}`);
     } catch (error: any) {
       console.error('Failed to create conversation:', error);
       setError(error.response?.data?.message || 'Failed to start chat');
@@ -56,7 +65,7 @@ export default function UserItem({ user }: UserItemProps) {
     <div className="p-4 hover:bg-gray-50 transition">
       <div className="flex items-center space-x-3">
         <div className="relative">
-          <div className="w-12 h-12 bg-linear-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
             {user.username?.[0]?.toUpperCase() || 'U'}
           </div>
           <OnlineStatus isOnline={user.isOnline} />

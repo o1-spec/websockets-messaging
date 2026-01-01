@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useUsers } from '@/hooks/useUsers';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import ConversationList from './ConversationList';
 import UserList from '../users/UserList';
 import NotificationBell from '../notifications/NotificationBell';
+import { apiClient } from '@/lib/api';
 
 interface ChatSidebarProps {
   selectedConversation: any;
@@ -21,6 +21,7 @@ export default function ChatSidebar({
 }: ChatSidebarProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<'conversations' | 'users'>('conversations');
   const [searchQuery, setSearchQuery] = useState('');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -38,6 +39,24 @@ export default function ChatSidebar({
   const goToProfile = () => {
     router.push('/profile');
     setShowProfileMenu(false);
+  };
+
+  // Handle chat creation from UserList
+  const handleChatCreated = async (conversationId: string) => {
+    try {
+      // Fetch the conversation details
+      const response = await apiClient.getConversationById(conversationId);
+      
+      // Switch to conversations tab
+      setActiveTab('conversations');
+      
+      // Select the conversation
+      onSelectConversation(response.conversation);
+      
+      console.log('Chat created and selected:', conversationId);
+    } catch (error) {
+      console.error('Failed to fetch conversation:', error);
+    }
   };
 
   return (
@@ -134,27 +153,6 @@ export default function ChatSidebar({
           {/* Right Actions */}
           <div className="flex items-center space-x-2 shrink-0 ml-2">
             <NotificationBell />
-            {/* Collapse Button - Desktop only */}
-            {/* <button
-              onClick={onClose}
-              className="hidden md:block p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
-              title="Collapse Sidebar"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-                className="w-5 h-5"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5"
-                />
-              </svg>
-            </button> */}
           </div>
         </div>
 
@@ -217,7 +215,7 @@ export default function ChatSidebar({
             searchQuery={searchQuery}
           />
         ) : (
-          <UserList searchQuery={searchQuery} />
+          <UserList searchQuery={searchQuery} onChatCreated={handleChatCreated} />
         )}
       </div>
 

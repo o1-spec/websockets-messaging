@@ -107,26 +107,46 @@ export const getConversationById = async (req: AuthRequest, res: Response) => {
     const { conversationId } = req.params;
     const userId = req.user?._id;
 
+    console.log('Get conversation by ID:', { conversationId, userId });
+
     if (!userId) {
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
+    // Validate conversation ID format
+    if (!conversationId || conversationId === 'undefined' || conversationId === 'null') {
+      console.error('Invalid conversation ID received:', conversationId);
+      return res.status(400).json({ message: 'Invalid conversation ID format' });
+    }
+
+    // Check if it's a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      console.error('Invalid MongoDB ObjectId:', conversationId);
       return res.status(400).json({ message: 'Invalid conversation ID' });
     }
 
     const conversation = await Conversation.findOne({
       _id: conversationId,
       participants: userId,
-    }).populate('participants', '_id username email avatar isOnline');
+    })
+      .populate('participants', '_id username email avatar isOnline')
+      .populate({
+        path: 'lastMessage',
+        populate: {
+          path: 'sender',
+          select: 'username avatar',
+        },
+      });
 
     if (!conversation) {
-      return res.status(404).json({ message: 'Conversation not found' });
+      console.error('Conversation not found:', conversationId);
+      return res.status(404).json({ message: 'Conversation not found or access denied' });
     }
 
+    console.log('Conversation found:', conversation._id);
     res.status(200).json({ conversation });
   } catch (error: any) {
-    console.error('Get conversation error:', error);
+    console.error('Get conversation by ID error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

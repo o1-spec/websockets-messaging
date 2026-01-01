@@ -166,11 +166,33 @@ class ApiClient {
     return response.data;
   }
 
+  // Update the getConversationById method
+
   async getConversationById(conversationId: string) {
-    const response = await this.client.get(
-      `/api/conversations/${conversationId}`
-    );
-    return response.data;
+    // Validate conversation ID before making request
+    if (
+      !conversationId ||
+      conversationId === "undefined" ||
+      conversationId === "null"
+    ) {
+      console.error("Invalid conversation ID:", conversationId);
+      throw new Error("Invalid conversation ID");
+    }
+
+    console.log("Fetching conversation:", conversationId);
+
+    try {
+      const response = await this.client.get(
+        `/api/conversations/${conversationId}`
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Error fetching conversation:", {
+        conversationId,
+        error: error.response?.data || error.message,
+      });
+      throw error;
+    }
   }
 }
 
