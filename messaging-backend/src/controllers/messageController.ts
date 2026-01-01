@@ -3,15 +3,25 @@ import Message from '../models/Message';
 import Conversation from '../models/Conversation';
 import Notification from '../models/Notification';
 import { AuthRequest } from '../middleware/auth';
+import mongoose from 'mongoose';
 
 // Send a message
 export const sendMessage = async (req: AuthRequest, res: Response) => {
   try {
     const { conversationId, content, messageType = 'text', fileUrl } = req.body;
-    const senderId = req.user?.id;
+    const senderId = req.user?._id;
+
+    if (!senderId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
 
     if (!conversationId || !content) {
       return res.status(400).json({ message: 'Conversation ID and content are required' });
+    }
+
+    // Validate conversation ID
+    if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({ message: 'Invalid conversation ID' });
     }
 
     // Check if conversation exists and user is a participant
@@ -21,7 +31,7 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
     }
 
     const isParticipant = conversation.participants.some(
-      (p) => p.toString() === senderId
+      (p) => p.toString() === senderId.toString()
     );
     if (!isParticipant) {
       return res.status(403).json({ message: 'Not authorized' });
@@ -44,9 +54,9 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
     await message.populate('sender', 'username avatar');
 
     res.status(201).json({ message });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Send message error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
@@ -54,9 +64,18 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
 export const getMessages = async (req: AuthRequest, res: Response) => {
   try {
     const { conversationId } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?._id;
     const limit = parseInt(req.query.limit as string) || 50;
     const skip = parseInt(req.query.skip as string) || 0;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    // Validate conversation ID
+    if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({ message: 'Invalid conversation ID' });
+    }
 
     // Check if user is a participant
     const conversation = await Conversation.findById(conversationId);
@@ -65,7 +84,7 @@ export const getMessages = async (req: AuthRequest, res: Response) => {
     }
 
     const isParticipant = conversation.participants.some(
-      (p) => p.toString() === userId
+      (p) => p.toString() === userId.toString()
     );
     if (!isParticipant) {
       return res.status(403).json({ message: 'Not authorized' });
@@ -79,9 +98,9 @@ export const getMessages = async (req: AuthRequest, res: Response) => {
       .populate('sender', 'username avatar');
 
     res.status(200).json({ messages: messages.reverse() });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get messages error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
@@ -89,7 +108,16 @@ export const getMessages = async (req: AuthRequest, res: Response) => {
 export const markAsRead = async (req: AuthRequest, res: Response) => {
   try {
     const { messageId } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    // Validate message ID
+    if (!messageId || !mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({ message: 'Invalid message ID' });
+    }
 
     const message = await Message.findById(messageId);
     if (!message) {
@@ -97,16 +125,21 @@ export const markAsRead = async (req: AuthRequest, res: Response) => {
     }
 
     // Add user to readBy array if not already there
-    if (!message.readBy.includes(userId as any)) {
+    const userIdString = userId.toString();
+    const isAlreadyRead = message.readBy.some(
+      (id) => id.toString() === userIdString
+    );
+
+    if (!isAlreadyRead) {
       message.readBy.push(userId as any);
       message.isRead = true;
       await message.save();
     }
 
     res.status(200).json({ message: 'Message marked as read' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Mark as read error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
@@ -114,7 +147,16 @@ export const markAsRead = async (req: AuthRequest, res: Response) => {
 export const deleteMessage = async (req: AuthRequest, res: Response) => {
   try {
     const { messageId } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    // Validate message ID
+    if (!messageId || !mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({ message: 'Invalid message ID' });
+    }
 
     const message = await Message.findById(messageId);
     if (!message) {
@@ -122,15 +164,15 @@ export const deleteMessage = async (req: AuthRequest, res: Response) => {
     }
 
     // Only sender can delete message
-    if (message.sender.toString() !== userId) {
+    if (message.sender.toString() !== userId.toString()) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
     await message.deleteOne();
 
     res.status(200).json({ message: 'Message deleted successfully' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Delete message error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

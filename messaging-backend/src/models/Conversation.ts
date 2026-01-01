@@ -42,30 +42,42 @@ const ConversationSchema = new Schema<IConversation>(
   }
 );
 
+// Indexes for better query performance
 ConversationSchema.index({ participants: 1 });
 ConversationSchema.index({ updatedAt: -1 });
 
-ConversationSchema.pre('save' as any, function (this: IConversation, next: (err?: any) => void) {
+// Pre-save validation (using async/await pattern)
+ConversationSchema.pre('save', async function () {
+  // Validate minimum participants
   if (this.participants.length < 2) {
-    return next(new Error('A conversation must have at least 2 participants'));
+    throw new Error('A conversation must have at least 2 participants');
   }
   
+  // Validate group name for group conversations
   if (this.isGroup && !this.groupName) {
-    return next(new Error('Group conversations must have a name'));
+    throw new Error('Group conversations must have a name');
   }
   
-  this.participants = Array.from(new Set(this.participants.map(p => p.toString()))).map(
-    id => new mongoose.Types.ObjectId(id)
+  // Remove duplicate participants
+  const uniqueParticipants = Array.from(
+    new Set(this.participants.map(p => p.toString()))
   );
   
-  next();
+  this.participants = uniqueParticipants.map(
+    id => new mongoose.Types.ObjectId(id)
+  );
 });
 
-ConversationSchema.virtual('otherParticipant').get(function (this: IConversation) {
+// Virtual for getting the other participant in a direct conversation
+ConversationSchema.virtual('otherParticipant').get(function () {
   if (!this.isGroup && this.participants.length === 2) {
     return this.participants[1];
   }
   return null;
 });
+
+// Ensure virtuals are included when converting to JSON
+ConversationSchema.set('toJSON', { virtuals: true });
+ConversationSchema.set('toObject', { virtuals: true });
 
 export default mongoose.model<IConversation>('Conversation', ConversationSchema);

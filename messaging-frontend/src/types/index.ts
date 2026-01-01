@@ -1,6 +1,6 @@
 export interface User {
   _id: string;
-  id?: string; 
+  id?: string; // Keep for backwards compatibility
   username: string;
   email: string;
   avatar?: string;
@@ -13,7 +13,7 @@ export interface User {
 export interface Message {
   _id: string;
   conversationId: string;
-  sender: User | string;
+  sender: User | string; // Can be populated User object or just ID string
   content: string;
   messageType: 'text' | 'image' | 'file' | 'video';
   fileUrl?: string;
