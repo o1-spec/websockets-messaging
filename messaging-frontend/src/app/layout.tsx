@@ -1,0 +1,33 @@
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { AuthProvider } from '@/context/AuthContext';
+import { SocketProvider } from '@/context/SocketContext';
+import { NotificationProvider } from '@/context/NotificationContext';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata: Metadata = {
+  title: 'Real-Time Messaging Platform',
+  description: 'Connect and chat with people in real-time',
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>
+        <AuthProvider>
+          <SocketProvider>
+            <NotificationProvider>
+              {children}
+            </NotificationProvider>
+          </SocketProvider>
+        </AuthProvider>
+      </body>
+    </html>
+  );
+}
