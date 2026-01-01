@@ -1,5 +1,6 @@
 export interface User {
-  id: string;
+  _id: string;
+  id?: string; 
   username: string;
   email: string;
   avatar?: string;
@@ -12,7 +13,7 @@ export interface User {
 export interface Message {
   _id: string;
   conversationId: string;
-  sender: User;
+  sender: User | string;
   content: string;
   messageType: 'text' | 'image' | 'file' | 'video';
   fileUrl?: string;
@@ -36,7 +37,7 @@ export interface Conversation {
 export interface Notification {
   _id: string;
   recipient: string;
-  sender: User;
+  sender?: User;
   type: 'message' | 'friend_request' | 'system' | 'mention';
   title: string;
   message: string;

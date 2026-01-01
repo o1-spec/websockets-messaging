@@ -42,7 +42,30 @@ const ConversationSchema = new Schema<IConversation>(
   }
 );
 
-// Index for faster queries
 ConversationSchema.index({ participants: 1 });
+ConversationSchema.index({ updatedAt: -1 });
+
+ConversationSchema.pre('save' as any, function (this: IConversation, next: (err?: any) => void) {
+  if (this.participants.length < 2) {
+    return next(new Error('A conversation must have at least 2 participants'));
+  }
+  
+  if (this.isGroup && !this.groupName) {
+    return next(new Error('Group conversations must have a name'));
+  }
+  
+  this.participants = Array.from(new Set(this.participants.map(p => p.toString()))).map(
+    id => new mongoose.Types.ObjectId(id)
+  );
+  
+  next();
+});
+
+ConversationSchema.virtual('otherParticipant').get(function (this: IConversation) {
+  if (!this.isGroup && this.participants.length === 2) {
+    return this.participants[1];
+  }
+  return null;
+});
 
 export default mongoose.model<IConversation>('Conversation', ConversationSchema);
