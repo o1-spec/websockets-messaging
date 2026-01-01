@@ -52,6 +52,24 @@ class SocketClient {
     return this.socket?.connected || false;
   }
 
+  // Generic emit method
+  emit(event: string, data?: any) {
+    if (this.socket?.connected) {
+      this.socket.emit(event, data);
+    } else {
+      console.warn('Socket not connected. Cannot emit:', event);
+    }
+  }
+
+  // Generic on method
+  on(event: string, callback: (...args: any[]) => void) {
+    if (this.socket) {
+      this.socket.on(event, callback);
+    } else {
+      console.warn('Socket not connected. Cannot listen to:', event);
+    }
+  }
+
   // Conversation events
   joinConversation(conversationId: string) {
     this.socket?.emit(SOCKET_EVENTS.CONVERSATION_JOIN, conversationId);

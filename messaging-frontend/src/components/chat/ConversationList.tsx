@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { formatDate } from '@/lib/utils';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
+import { useSocket } from '@/context/SocketContext';
 
 interface ConversationListProps {
   selectedConversation: any;
@@ -19,10 +20,38 @@ export default function ConversationList({
   const [conversations, setConversations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user: currentUser } = useAuth();
+  const { onConversationNew, onConversationUpdated, offConversationNew, offConversationUpdated } = useSocket();
 
   useEffect(() => {
     fetchConversations();
   }, []);
+
+  // Listen for new conversations and updates via WebSocket
+  useEffect(() => {
+    const handleNewConversation = (conversation: any) => {
+      console.log('📩 New conversation received:', conversation);
+      setConversations((prev) => {
+        const exists = prev.some((c) => c._id === conversation._id);
+        if (exists) return prev;
+        return [conversation, ...prev];
+      });
+    };
+
+    const handleConversationUpdated = (conversation: any) => {
+      console.log('🔄 Conversation updated:', conversation);
+      setConversations((prev) =>
+        prev.map((c) => (c._id === conversation._id ? conversation : c))
+      );
+    };
+
+    onConversationNew(handleNewConversation);
+    onConversationUpdated(handleConversationUpdated);
+
+    return () => {
+      offConversationNew();
+      offConversationUpdated();
+    };
+  }, [onConversationNew, onConversationUpdated, offConversationNew, offConversationUpdated]);
 
   const fetchConversations = async () => {
     setIsLoading(true);
@@ -37,13 +66,11 @@ export default function ConversationList({
     }
   };
 
-  // Helper function to get the other participant (not the current user)
   const getOtherParticipant = (conversation: any) => {
     if (!conversation.participants || conversation.participants.length === 0) {
       return null;
     }
     
-    // Find participant that is NOT the current user
     return conversation.participants.find(
       (p: any) => p._id !== currentUser?._id
     ) || conversation.participants[0];
@@ -89,7 +116,6 @@ export default function ConversationList({
   return (
     <div className="divide-y divide-gray-200">
       {filteredConversations.map((conversation) => {
-        // Get the OTHER participant (not current user)
         const otherParticipant = getOtherParticipant(conversation);
         const isSelected = selectedConversation?._id === conversation._id;
 

@@ -37,12 +37,17 @@ export interface Conversation {
 export interface Notification {
   _id: string;
   recipient: string;
-  sender?: User;
-  type: 'message' | 'friend_request' | 'system' | 'mention';
+  sender?: {
+    _id: string;
+    username: string;
+    avatar?: string;
+  };
+  type: 'message' | 'friend_request' | 'system' | 'mention' | 'conversation';
   title: string;
   message: string;
   isRead: boolean;
   link?: string;
+  conversationId?: string;
   metadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;

@@ -5,6 +5,7 @@ import OnlineStatus from './OnlineStatus';
 import { apiClient } from '@/lib/api';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSocket } from '@/context/SocketContext';
 
 interface UserItemProps {
   user: User;
@@ -14,6 +15,7 @@ export default function UserItem({ user }: UserItemProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const { emitConversationCreated, isConnected } = useSocket();
 
   const handleStartChat = async () => {
     setIsCreating(true);
@@ -30,10 +32,18 @@ export default function UserItem({ user }: UserItemProps) {
     try {
       console.log('Creating conversation with user:', userId);
       const response = await apiClient.createConversation([userId]);
-      console.log('Conversation created:', response);
+      console.log('Conversation response:', response);
       
-      // Refresh the page to show the new conversation
-      window.location.href = '/chat';
+      // Only emit if it's a NEW conversation
+      if (response.isNew && isConnected) {
+        console.log('Emitting conversation:created event');
+        emitConversationCreated(response.conversation._id);
+      } else {
+        console.log('Conversation already exists, not emitting event');
+      }
+      
+      // Navigate to chat page
+      router.push('/chat');
     } catch (error: any) {
       console.error('Failed to create conversation:', error);
       setError(error.response?.data?.message || 'Failed to start chat');

@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { socketClient } from '@/lib/socket';
 import { useAuth } from './AuthContext';
-import { Message } from '@/types';
+import { Message, Conversation } from '@/types';
 
 interface SocketContextType {
   isConnected: boolean;
@@ -22,6 +22,13 @@ interface SocketContextType {
   onTyping: (callback: (data: any) => void) => void;
   onTypingStop: (callback: (data: any) => void) => void;
   offMessageReceive: () => void;
+  emitConversationCreated: (conversationId: string) => void;
+  onConversationNew: (callback: (conversation: Conversation) => void) => void;
+  onConversationUpdated: (callback: (conversation: Conversation) => void) => void;
+  onNotification: (callback: (notification: any) => void) => void;
+  offConversationNew: () => void;
+  offConversationUpdated: () => void;
+  offNotification: () => void;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -103,6 +110,35 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socketClient.off('message:receive');
   };
 
+  // New conversation methods
+  const emitConversationCreated = (conversationId: string) => {
+    socketClient.emit('conversation:created', { conversationId });
+  };
+
+  const onConversationNew = (callback: (conversation: Conversation) => void) => {
+    socketClient.on('conversation:new', callback);
+  };
+
+  const onConversationUpdated = (callback: (conversation: Conversation) => void) => {
+    socketClient.on('conversation:updated', callback);
+  };
+
+  const onNotification = (callback: (notification: any) => void) => {
+    socketClient.on('notification:new', callback);
+  };
+
+  const offConversationNew = () => {
+    socketClient.off('conversation:new');
+  };
+
+  const offConversationUpdated = () => {
+    socketClient.off('conversation:updated');
+  };
+
+  const offNotification = () => {
+    socketClient.off('notification:new');
+  };
+
   const value = {
     isConnected,
     onlineUsers,
@@ -115,6 +151,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     onTyping,
     onTypingStop,
     offMessageReceive,
+    emitConversationCreated,
+    onConversationNew,
+    onConversationUpdated,
+    onNotification,
+    offConversationNew,
+    offConversationUpdated,
+    offNotification,
   };
 
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;

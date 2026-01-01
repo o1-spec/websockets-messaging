@@ -144,6 +144,12 @@ class ApiClient {
     return response.data;
   }
 
+  async deleteAllNotifications() {
+    const response = await this.client.delete("/api/notifications");
+    return response.data;
+  }
+
+  // Conversation APIs
   async getConversations() {
     const response = await this.client.get("/api/conversations");
     return response.data;
