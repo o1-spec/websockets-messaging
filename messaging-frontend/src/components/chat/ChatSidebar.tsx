@@ -135,7 +135,7 @@ export default function ChatSidebar({
           <div className="flex items-center space-x-2 shrink-0 ml-2">
             <NotificationBell />
             {/* Collapse Button - Desktop only */}
-            <button
+            {/* <button
               onClick={onClose}
               className="hidden md:block p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
               title="Collapse Sidebar"
@@ -154,7 +154,7 @@ export default function ChatSidebar({
                   d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5"
                 />
               </svg>
-            </button>
+            </button> */}
           </div>
         </div>
 
