@@ -51,6 +51,67 @@ export const handleSocketConnection = (io: Server) => {
       console.log(`User ${username} left conversation ${conversationId}`);
     });
 
+    // Handle new conversation created
+    socket.on('conversation:created', async (data: { conversationId: string }) => {
+      try {
+        const { conversationId } = data;
+        
+        console.log(`📢 Conversation created event received: ${conversationId}`);
+        
+        const conversation = await Conversation.findById(conversationId)
+          .populate('participants', '_id username email avatar isOnline');
+
+        if (!conversation) {
+          console.error('Conversation not found:', conversationId);
+          return;
+        }
+
+        console.log(`Broadcasting conversation to ${conversation.participants.length} participants`);
+        
+        // Notify all participants about the new conversation
+        conversation.participants.forEach((participant: any) => {
+          const participantId = participant._id.toString();
+          
+          // Send conversation to participant
+          io.to(participantId).emit('conversation:new', conversation);
+          console.log(`✅ Sent conversation to: ${participant.username} (${participantId})`);
+          
+          // Send notification to other participants (not the creator)
+          if (participantId !== userId) {
+            const notification = {
+              _id: new Date().getTime().toString(),
+              type: 'conversation',
+              title: 'New Conversation',
+              message: `${username} wants to chat with you`,
+              conversationId: conversation._id,
+              sender: {
+                _id: userId,
+                username: username,
+              },
+              createdAt: new Date(),
+              isRead: false,
+            };
+            
+            io.to(participantId).emit('notification:new', notification);
+            console.log(`🔔 Notification sent to: ${participant.username}`);
+            
+            // Create notification in database for offline users
+            Notification.create({
+              recipient: participantId,
+              sender: userId,
+              type: 'system',
+              title: 'New Conversation',
+              message: `${username} wants to chat with you`,
+              link: `/chat?conversation=${conversationId}`,
+              metadata: { conversationId },
+            }).catch(err => console.error('Error creating notification:', err));
+          }
+        });
+      } catch (error) {
+        console.error('Error handling conversation created:', error);
+      }
+    });
+
     // Handle sending a message
     socket.on('message:send', async (data: {
       conversationId: string;
@@ -60,6 +121,8 @@ export const handleSocketConnection = (io: Server) => {
     }) => {
       try {
         const { conversationId, content, messageType = 'text', fileUrl } = data;
+
+        console.log(`📨 Message send event: ${conversationId}`);
 
         // Verify user is part of conversation
         const conversation = await Conversation.findById(conversationId);
@@ -84,25 +147,19 @@ export const handleSocketConnection = (io: Server) => {
         conversation.lastMessage = message._id as any;
         await conversation.save();
 
+        // Populate conversation for emitting
+        await conversation.populate('participants', '_id username email avatar isOnline');
+
         // Emit message to conversation room
         io.to(`conversation:${conversationId}`).emit('message:receive', message);
+        console.log(`✅ Message sent to conversation room: ${conversationId}`);
 
-        // Send notifications to offline participants
-        const offlineParticipants = conversation.participants.filter(
-          p => p.toString() !== userId && !onlineUsers.has(p.toString())
-        );
-
-        for (const participantId of offlineParticipants) {
-          await Notification.create({
-            recipient: participantId,
-            sender: userId,
-            type: 'message',
-            title: 'New Message',
-            message: `${username}: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`,
-            link: `/chat?conversation=${conversationId}`,
-            metadata: { conversationId, messageId: message._id },
-          });
-        }
+        // Emit to each participant directly (for those not in the room yet)
+        conversation.participants.forEach((participant: any) => {
+          const participantId = participant._id.toString();
+          io.to(participantId).emit('message:receive', message);
+          io.to(participantId).emit('conversation:updated', conversation);
+        });
 
         console.log(`Message sent in conversation ${conversationId}`);
       } catch (error) {
@@ -150,37 +207,6 @@ export const handleSocketConnection = (io: Server) => {
       }
     });
 
-    // Handle notification events
-    socket.on('notification:send', async (data: {
-      recipientId: string;
-      type: 'message' | 'friend_request' | 'system' | 'mention';
-      title: string;
-      message: string;
-      link?: string;
-    }) => {
-      try {
-        const { recipientId, type, title, message, link } = data;
-
-        const notification = await Notification.create({
-          recipient: recipientId,
-          sender: userId,
-          type,
-          title,
-          message,
-          link,
-        });
-
-        await notification.populate('sender', 'username avatar');
-
-        // Send notification to recipient if online
-        io.to(recipientId).emit('notification:receive', notification);
-
-        console.log(`Notification sent to ${recipientId}`);
-      } catch (error) {
-        console.error('Error sending notification:', error);
-      }
-    });
-
     // Handle disconnection
     socket.on('disconnect', async () => {
       console.log(`❌ User disconnected: ${username} (${userId})`);
@@ -202,12 +228,10 @@ export const handleSocketConnection = (io: Server) => {
   });
 };
 
-// Helper function to get online users
 export const getOnlineUsers = () => {
   return Array.from(onlineUsers.keys());
 };
 
-// Helper function to emit to specific user
 export const emitToUser = (io: Server, userId: string, event: string, data: any) => {
   const socketId = onlineUsers.get(userId);
   if (socketId) {
